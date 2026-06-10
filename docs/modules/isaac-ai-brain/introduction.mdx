@@ -1,0 +1,83 @@
+---
+sidebar_position: 1
+---
+
+# Isaac AI Brain
+
+Welcome to **Module 3: Isaac AI Brain** - implement advanced AI perception and navigation for humanoid robots using NVIDIA Isaac tools.
+
+## Overview
+
+NVIDIA Isaac provides GPU-accelerated AI capabilities for robotics. This module covers:
+
+- **Isaac Sim**: High-fidelity simulation with Omniverse
+- **Isaac ROS**: Accelerated perception pipelines
+- **Nav2 Integration**: Autonomous navigation for humanoids
+
+## What You'll Learn
+
+- **Isaac Sim**: Setting up Omniverse simulation environments
+- **Perception Pipelines**: Object detection, segmentation, and pose estimation
+- **Navigation**: Humanoid-specific navigation with Nav2
+- **AI Workflows**: Connecting Isaac to your ROS 2 robot
+
+## Chapters
+
+| Chapter | Topic | Description |
+|---------|-------|-------------|
+| 1 | [Isaac Sim](./isaac-sim) | Omniverse simulation setup |
+| 2 | [Perception Pipelines](./perception-pipelines) | GPU-accelerated vision AI |
+| 3 | [Navigation](./navigation) | Nav2 for humanoid robots |
+
+## Prerequisites
+
+- ROS 2 Humble installed
+- NVIDIA GPU (RTX 2070 or better recommended)
+- NVIDIA drivers 525+ installed
+- Modules 1-2 completion recommended
+
+## Quick Start
+
+```bash
+# Install Isaac ROS
+mkdir -p ~/isaac_ros_ws/src
+cd ~/isaac_ros_ws/src
+git clone https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_common
+
+# Build the workspace
+cd ~/isaac_ros_ws
+colcon build --symlink-install
+
+# Source the workspace
+source install/setup.bash
+```
+
+## Isaac Ecosystem
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    NVIDIA Isaac                          │
+├─────────────────────────────────────────────────────────┤
+│  Isaac Sim          │  Isaac ROS        │  Isaac SDK    │
+│  (Omniverse)        │  (ROS 2 Nodes)    │  (C++ API)    │
+├─────────────────────────────────────────────────────────┤
+│                    GPU Acceleration                      │
+│         (CUDA, TensorRT, cuDNN, Triton)                 │
+├─────────────────────────────────────────────────────────┤
+│                    ROS 2 Humble                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+## Key Features
+
+| Feature | Description |
+|---------|-------------|
+| **DNN Inference** | TensorRT-optimized neural networks |
+| **AprilTags** | Fiducial marker detection |
+| **Occupancy Grid** | Real-time environment mapping |
+| **VSLAM** | Visual simultaneous localization and mapping |
+| **Freespace Segmentation** | Drivable area detection |
+
+---
+
+Continue to [Isaac Sim](./isaac-sim) to begin setting up your Isaac environment.

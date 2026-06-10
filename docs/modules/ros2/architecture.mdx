@@ -1,0 +1,268 @@
+---
+title: ROS 2 Architecture Fundamentals
+sidebar_position: 1
+description: Understanding the core architecture of ROS 2 including nodes, executors, and DDS
+---
+
+# ROS 2 Architecture Fundamentals
+
+## Overview
+
+The Robot Operating System 2 (ROS 2) represents a significant architectural evolution from its predecessor, addressing key challenges in scalability, real-time performance, and multi-robot systems. At its core, ROS 2 is designed as a flexible framework for developing robot applications, providing services such as hardware abstraction, device drivers, libraries, visualizers, and message-passing capabilities.
+
+This chapter provides a comprehensive introduction to the fundamental architectural components of ROS 2, including nodes, executors, and the underlying Data Distribution Service (DDS) middleware. Understanding these concepts is crucial for developing effective robotic systems using ROS 2.
+
+## Key Architectural Concepts
+
+ROS 2's architecture is built around several core concepts that enable distributed robotic applications:
+
+- **Nodes**: The fundamental unit of computation that performs specific tasks
+- **DDS Middleware**: The underlying communication layer that enables message passing
+- **Executors**: The scheduling mechanism that manages node execution
+- **Topics, Services, and Actions**: Communication patterns for inter-node interaction
+
+These components work together to provide a robust, scalable, and flexible framework for robot application development.
+
+## Evolution from ROS 1
+
+ROS 2 was designed to address limitations in ROS 1, particularly around:
+
+- **Real-time support**: Enhanced capabilities for time-critical applications
+- **Multi-robot systems**: Better support for coordination between multiple robots
+- **Deterministic behavior**: More predictable system behavior under load
+- **Security**: Built-in security mechanisms for protected communication
+- **Cross-platform support**: Improved support for different operating systems
+
+Understanding these architectural improvements provides context for why ROS 2 is structured the way it is and helps developers make better design decisions.
+
+## ROS 2 Nodes
+
+### Definition and Purpose
+
+A **node** in ROS 2 is the fundamental unit of execution that performs specific computational tasks within the robotic system. Each node is typically implemented as a separate process that can communicate with other nodes through the ROS 2 communication infrastructure. Nodes encapsulate functionality such as sensor processing, motion planning, control algorithms, or user interfaces.
+
+In ROS 2, nodes are more robust than their ROS 1 counterparts, with improved lifecycle management and better integration with the underlying middleware. Each node can contain publishers, subscribers, services, clients, and action servers/clients.
+
+### Node Characteristics
+
+- **Isolation**: Each node runs in its own process space, providing fault isolation
+- **Communication**: Nodes communicate through topics, services, and actions
+- **Identity**: Each node has a unique name within the ROS domain
+- **Lifecycle**: Nodes can have managed lifecycles for complex initialization/shutdown
+
+### Creating a Node
+
+In Python using rclpy, a node is created by inheriting from the `Node` class:
+
+```python
+import rclpy
+from rclpy.node import Node
+
+class MyNode(Node):
+    def __init__(self):
+        super().__init__('my_node_name')
+        self.get_logger().info('MyNode initialized')
+
+def main(args=None):
+    rclpy.init(args=args)
+    node = MyNode()
+    rclpy.spin(node)
+    node.destroy_node()
+    rclpy.shutdown()
+
+if __name__ == '__main__':
+    main()
+```
+
+This pattern ensures proper initialization and cleanup of the node, following ROS 2 best practices.
+
+## Executors
+
+### Definition and Purpose
+
+An **executor** in ROS 2 manages the execution of callbacks from subscriptions, services, action servers/clients, and timers within one or more nodes. Executors are responsible for determining which callbacks get called when, providing a flexible way to control the threading model and execution behavior of ROS 2 applications.
+
+Executors solve the problem of callback management that existed in ROS 1, where the main thread would block during `spin()` and couldn't handle other application logic. In ROS 2, executors provide more sophisticated scheduling capabilities.
+
+### Types of Executors
+
+ROS 2 provides different executor types to suit various application needs:
+
+- **Single-threaded executor**: Executes all callbacks in a single thread, processing them sequentially
+- **Multi-threaded executor**: Distributes callbacks across multiple threads for concurrent execution
+- **Static single-threaded executor**: Similar to single-threaded but with better performance for static node collections
+
+### Using Executors
+
+While `rclpy.spin()` uses a default single-threaded executor, you can create and configure custom executors:
+
+```python
+import rclpy
+from rclpy.node import Node
+from rclpy.executors import MultiThreadedExecutor
+import threading
+
+class MyNode(Node):
+    def __init__(self):
+        super().__init__('my_node_name')
+        # Create a timer that calls a callback periodically
+        self.timer = self.create_timer(0.5, self.timer_callback)
+
+    def timer_callback(self):
+        self.get_logger().info('Timer callback executed')
+
+def main(args=None):
+    rclpy.init(args=args)
+    node = MyNode()
+
+    # Create a multi-threaded executor
+    executor = MultiThreadedExecutor()
+    executor.add_node(node)
+
+    # Spin in a separate thread
+    spin_thread = threading.Thread(target=executor.spin)
+    spin_thread.start()
+
+    # Other application logic can run here
+    spin_thread.join()
+
+    node.destroy_node()
+    rclpy.shutdown()
+
+if __name__ == '__main__':
+    main()
+```
+
+Executors provide the flexibility to design applications with specific threading and performance characteristics.
+
+## Data Distribution Service (DDS)
+
+### Definition and Purpose
+
+**DDS (Data Distribution Service)** is the underlying middleware that powers communication in ROS 2. It is an industry-standard specification for machine-to-machine connectivity that provides scalable, real-time, reliable, and high-performance data exchange. DDS acts as the communication layer between ROS 2 nodes, abstracting the complexities of network communication, discovery, and data delivery.
+
+In ROS 1, communication relied on a centralized master, which created a single point of failure and scalability issues. ROS 2's DDS-based approach enables peer-to-peer communication, making it more robust and scalable for complex robotic systems.
+
+### Key Features of DDS
+
+- **Discovery**: Automatic discovery of participants without requiring a central registry
+- **Quality of Service (QoS)**: Configurable policies for delivery, reliability, and durability
+- **Data-centricity**: Focus on data rather than connection between applications
+- **Platform independence**: Language and platform agnostic communication
+- **Real-time support**: Deterministic behavior for time-critical applications
+
+### DDS Implementation in ROS 2
+
+ROS 2 does not implement DDS directly but provides an abstraction layer through the **ROS Middleware Interface (RMW)**. This allows different DDS implementations to be used with ROS 2:
+
+- **Fast DDS** (formerly Fast RTPS): Default implementation in ROS 2 Humble
+- **Cyclone DDS**: Lightweight, high-performance implementation
+- **RTI Connext DDS**: Commercial implementation with advanced features
+
+### Communication Architecture
+
+DDS organizes communication using:
+
+- **Domain**: A communication space where participants can discover each other
+- **Participant**: An instance of the DDS implementation in an application
+- **Publisher/Subscriber**: Endpoints for sending and receiving data
+- **Data Writer/Reader**: Specific instances for particular data types
+
+The relationship between ROS 2 concepts and DDS concepts:
+- ROS 2 Node → DDS Participant
+- ROS 2 Publisher → DDS Data Writer
+- ROS 2 Subscriber → DDS Data Reader
+- ROS 2 Service → Pair of DDS Data Writers/Readers
+
+## Determinism and Real-time Concepts
+
+### Understanding Determinism in ROS 2
+
+**Determinism** in the context of ROS 2 refers to the predictability of system behavior with respect to timing. A deterministic system produces consistent results within known time bounds, which is crucial for safety-critical robotic applications. Unlike ROS 1, which had limited real-time capabilities, ROS 2 is designed with real-time performance in mind.
+
+### Real-time Support in ROS 2
+
+ROS 2 provides enhanced real-time capabilities through:
+
+- **DDS Quality of Service (QoS) policies**: Configurable timing and reliability guarantees
+- **Improved threading model**: Better control over execution timing via executors
+- **Deterministic discovery**: Predictable node discovery times
+- **Deadline and lifespan policies**: Time-bound message delivery guarantees
+
+### Key Real-time Features
+
+- **Deadline policies**: Messages are guaranteed to be delivered within specified time intervals
+- **Lifespan policies**: Messages are automatically discarded after specified time periods
+- **Durability**: Historical data can be maintained for late-joining subscribers
+- **Reliability levels**: Configurable reliability from best-effort to reliable delivery
+
+### Implementing Real-time Behavior
+
+To achieve real-time behavior in ROS 2 applications:
+
+1. Use appropriate QoS profiles for time-critical communications
+2. Configure executors for predictable execution patterns
+3. Implement proper resource management and scheduling
+4. Use real-time operating systems when necessary
+
+```python
+from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy
+
+# Example of a real-time QoS profile
+real_time_qos = QoSProfile(
+    depth=10,
+    reliability=ReliabilityPolicy.RELIABLE,
+    durability=DurabilityPolicy.VOLATILE,
+    deadline=(0, 100000000),  # 100ms deadline
+    lifespan=(0, 500000000)   # 500ms lifespan
+)
+```
+
+These features make ROS 2 suitable for applications requiring predictable timing behavior, such as robot control systems.
+
+## Comparison: ROS 1 vs ROS 2 Architecture
+
+### Communication Architecture
+
+| Aspect | ROS 1 | ROS 2 |
+|--------|-------|-------|
+| **Master** | Centralized ROS Master required | Peer-to-peer using DDS, no master needed |
+| **Discovery** | Master-based registration | Automatic peer discovery |
+| **Middleware** | Custom TCPROS/UDPROS | Standardized DDS implementations |
+| **Scalability** | Limited by master | Highly scalable, multi-robot capable |
+
+### Real-time and Determinism
+
+| Aspect | ROS 1 | ROS 2 |
+|--------|-------|-------|
+| **Real-time support** | Limited, requires additional tools | Built-in QoS policies for real-time |
+| **Determinism** | Unpredictable timing | Configurable timing guarantees |
+| **Multi-robot** | Complex setup required | Native support via DDS domains |
+
+### Programming Model
+
+| Aspect | ROS 1 | ROS 2 |
+|--------|-------|-------|
+| **Threading** | Limited control, blocking spin() | Flexible executors with threading control |
+| **Lifecycle** | Simple node lifecycle | Advanced lifecycle management |
+| **Languages** | Primarily C++ and Python | Expanded support through DDS |
+
+### Quality of Service (QoS)
+
+One of the most significant architectural improvements in ROS 2 is the introduction of Quality of Service (QoS) policies, which are not available in ROS 1:
+
+- **Reliability**: Choose between reliable delivery or best-effort
+- **Durability**: Control whether late-joining subscribers receive historical data
+- **Deadline**: Set timing requirements for message delivery
+- **Lifespan**: Specify how long messages remain valid
+
+This allows ROS 2 applications to be tailored for specific performance and reliability requirements, from best-effort sensor data to reliable command delivery.
+
+### Security
+
+| Aspect | ROS 1 | ROS 2 |
+|--------|-------|-------|
+| **Security** | No built-in security | Built-in security with authentication and encryption |
+| **Access control** | None | Fine-grained access control |
+
+The architectural differences make ROS 2 more suitable for production environments where reliability, security, and real-time performance are critical requirements.

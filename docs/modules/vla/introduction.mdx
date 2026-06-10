@@ -1,0 +1,105 @@
+---
+sidebar_position: 1
+---
+
+# Vision-Language-Action (VLA)
+
+Welcome to **Module 4: Vision-Language-Action** - build voice-controlled humanoid robots with LLM-based cognitive planning.
+
+## Overview
+
+The VLA module enables humanoid robots to:
+- **Hear**: Convert speech to text using OpenAI Whisper
+- **Think**: Generate action plans using GPT-4
+- **Act**: Execute plans through ROS 2 actions
+
+## What You'll Learn
+
+- **Voice-to-Action**: Capturing and processing voice commands
+- **Cognitive Planning**: LLM-based task decomposition
+- **Autonomous Execution**: End-to-end task pipelines
+
+## Chapters
+
+| Chapter | Topic | Description |
+|---------|-------|-------------|
+| 1 | [Voice-to-Action](./voice-to-action) | Whisper speech recognition |
+| 2 | [Cognitive Planning](./cognitive-planning) | LLM-based action planning |
+| 3 | [Autonomous Humanoid](./autonomous-humanoid) | Capstone integration |
+
+## Prerequisites
+
+- ROS 2 Humble installed
+- Python 3.10+
+- OpenAI API key
+- Modules 1-3 completion recommended
+
+## Quick Start
+
+```bash
+# Install VLA dependencies
+pip install openai openai-whisper sounddevice pyttsx3
+
+# Set your API key
+export OPENAI_API_KEY="your-key-here"
+
+# Run the voice pipeline
+ros2 launch vla_nodes whisper_pipeline.launch.py
+```
+
+## VLA Pipeline Architecture
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    Voice Input                           │
+│                   (Microphone)                           │
+└──────────────────────┬──────────────────────────────────┘
+                       ▼
+┌─────────────────────────────────────────────────────────┐
+│               Audio Capture + VAD                        │
+│            examples/vla/whisper/nodes/                   │
+└──────────────────────┬──────────────────────────────────┘
+                       ▼
+┌─────────────────────────────────────────────────────────┐
+│              Whisper Transcription                       │
+│              (Local or API)                              │
+└──────────────────────┬──────────────────────────────────┘
+                       ▼
+┌─────────────────────────────────────────────────────────┐
+│               Command Parser                             │
+│          (Intent + Entity Extraction)                    │
+└──────────────────────┬──────────────────────────────────┘
+                       ▼
+┌─────────────────────────────────────────────────────────┐
+│               LLM Planner                                │
+│       (GPT-4 with Function Calling)                      │
+└──────────────────────┬──────────────────────────────────┘
+                       ▼
+┌─────────────────────────────────────────────────────────┐
+│               Plan Executor                              │
+│        (Sequential Primitive Execution)                  │
+└──────────────────────┬──────────────────────────────────┘
+                       ▼
+┌─────────────────────────────────────────────────────────┐
+│              Robot Actions                               │
+│     (Nav2, MoveIt, Perception, Speech)                   │
+└─────────────────────────────────────────────────────────┘
+```
+
+## Action Primitives
+
+| Primitive | Category | Description |
+|-----------|----------|-------------|
+| `navigate_to` | Navigation | Move to a location |
+| `look_at` | Perception | Orient sensors toward target |
+| `scan_environment` | Perception | Survey surroundings |
+| `identify_object` | Perception | Find and localize objects |
+| `pick_up` | Manipulation | Grasp and lift objects |
+| `place` | Manipulation | Put down held objects |
+| `say` | Communication | Speak to the user |
+| `wait` | Control | Pause execution |
+| `cancel` | Control | Stop current action |
+
+---
+
+Continue to [Voice-to-Action](./voice-to-action) to begin building your VLA pipeline.

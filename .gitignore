@@ -1,0 +1,81 @@
+# qdrant_db/  # Keep committed for HF Spaces deployment
+node_modules/
+.docusaurus/
+.cache-loader/
+build/
+nul
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.log
+.git/
+*.pot
+*.pyc
+*.pyo
+*.mo
+.pytest_cache/
+.hypothesis/
+.DS_Store
+
+# Virtual environments
+venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ROS/Isaac
+build/
+install/
+log/
+.deps/
+*.log
+*.bak
+*.tmp
+
+# Isaac Sim specific
+isaac-sim/
+isaac-sim-*
+isaac-sim-*/logs/
+isaac-sim-*/cache/
+
+# Build outputs
+dist/
+build/
+*.egg
+*.egg-info/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db

@@ -1,0 +1,40 @@
+---
+sidebar_position: 1
+---
+
+# RAG Chatbot
+
+The RAG (Retrieval-Augmented Generation) Chatbot provides an interactive way to query the AI-Native Book. It uses vector search to find relevant sections of the documentation and uses an LLM to generate grounded answers.
+
+## Features
+
+- **Context-Aware Answers**: Responses are based on the actual content of the book.
+- **Source Citations**: Every answer includes links to the source documentation pages.
+- **Vector Search**: Uses Qdrant for efficient semantic search.
+- **Interactive UI**: A floating chatbot widget available on all pages.
+
+## Architecture
+
+The chatbot consists of two main components:
+
+1.  **Frontend**: A React component (`src/components/Chatbot`) integrated into Docusaurus.
+2.  **Backend**: A FastAPI application (`src/rag/api`) that handles retrieval and generation.
+
+### Data Flow
+
+1.  **Ingestion**: Documentation files (`.mdx`) are chunked and embedded using OpenAI's `text-embedding-ada-002` model.
+2.  **Storage**: Embeddings and text chunks are stored in a local Qdrant vector database.
+3.  **query**: When a user asks a question, it is embedded and compared against the stored chunks.
+4.  **Retrieval**: The top most similar chunks are retrieved.
+5.  **Generation**: The retrieved chunks are formatted into a prompt for GPT-3.5/4, which generates the answer.
+
+## Usage
+
+The chatbot appears as a floating bubble in the bottom-right corner of the website. Click to open the chat window and type your question.
+
+## Configuration
+
+The chatbot is configured via environment variables in `.env` (or system environment):
+
+- `OPENAI_API_KEY`: Required for embeddings and generation.
+- `QDRANT_URL`: URL or path to Qdrant database (default: `./qdrant_db`).

@@ -1,0 +1,187 @@
+---
+sidebar_position: 4
+---
+
+# Autonomous Humanoid Capstone
+
+Build a complete end-to-end autonomous humanoid robot that responds to voice commands.
+
+## Overview
+
+The capstone integrates all previous modules:
+
+- **Module 1**: ROS 2 communication backbone
+- **Module 2**: Simulation environment
+- **Module 3**: Perception and navigation
+- **Module 4**: Voice control and planning
+
+## Complete Pipeline
+
+```
+                          User Voice Command
+                                 │
+                                 ▼
+┌────────────────────────────────────────────────────────────┐
+│                    VLA Voice Pipeline                       │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────┐  │
+│  │Audio Capture │─▶│   Whisper    │─▶│ Command Parser   │  │
+│  └──────────────┘  └──────────────┘  └──────────────────┘  │
+└────────────────────────────────────────────────────────────┘
+                                 │
+                                 ▼
+┌────────────────────────────────────────────────────────────┐
+│                    LLM Planning Layer                       │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────┐  │
+│  │Context Mgr   │─▶│ LLM Planner  │─▶│ Plan Validator   │  │
+│  └──────────────┘  └──────────────┘  └──────────────────┘  │
+└────────────────────────────────────────────────────────────┘
+                                 │
+                                 ▼
+┌────────────────────────────────────────────────────────────┐
+│                    Execution Layer                          │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────┐  │
+│  │Plan Executor │─▶│  Primitives  │─▶│ Error Handler    │  │
+│  └──────────────┘  └──────────────┘  └──────────────────┘  │
+└────────────────────────────────────────────────────────────┘
+                                 │
+                                 ▼
+┌────────────────────────────────────────────────────────────┐
+│                    Robot Subsystems                         │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────┐  │
+│  │    Nav2      │  │   MoveIt     │  │  Perception      │  │
+│  │ (Navigation) │  │(Manipulation)│  │  (Isaac ROS)     │  │
+│  └──────────────┘  └──────────────┘  └──────────────────┘  │
+└────────────────────────────────────────────────────────────┘
+```
+
+## Launch the Full System
+
+```bash
+# Launch the complete autonomous pipeline
+ros2 launch vla_nodes autonomous_humanoid.launch.py \
+    whisper_model:=small \
+    llm_model:=gpt-4 \
+    simulation:=true
+```
+
+## Demo Scenario: Fetch Object
+
+```python
+# Example: "Go to the desk and pick up the phone"
+
+scenario = FetchObjectScenario(
+    target_location="desk",
+    target_object="phone"
+)
+
+success = scenario.run()
+# Output:
+# [ROBOT]: Understood. I'll get the phone from the desk.
+# [Step 1/6] Executing: say
+# [Step 2/6] Executing: navigate_to → desk
+# [Step 3/6] Executing: scan_environment
+# [Step 4/6] Executing: identify_object → phone
+# [Step 5/6] Executing: pick_up → phone_001
+# [Step 6/6] Executing: say
+# [ROBOT]: I've got the phone. What should I do with it?
+```
+
+## Error Handling
+
+The system implements three-tier error recovery:
+
+### Tier 1: Primitive Retry
+```python
+# Retry with modified parameters
+if grasp_failed:
+    retry_with(grasp_type="precision", approach="side")
+```
+
+### Tier 2: Plan Replanning
+```python
+# Request new plan from LLM
+if navigation_blocked:
+    replan_with_context(failure_reason="path blocked")
+```
+
+### Tier 3: User Assistance
+```python
+# Ask user for help
+if object_not_found:
+    say("I couldn't find the phone. Can you point it out?")
+```
+
+## Performance Metrics
+
+| Metric | Target | Validation |
+|--------|--------|------------|
+| Voice Accuracy | ≥95% | SC-001 |
+| Plan Executability | ≥90% | SC-002 |
+| Task Success Rate | ≥80% | SC-003 |
+| Completion Time | &lt;60s | SC-004 |
+| Error Feedback | ≥95% | SC-005 |
+| Pipeline Latency | &lt;5s | SC-006 |
+
+## Configuration
+
+```yaml
+# capstone_config.yaml
+features:
+  voice_input: true
+  llm_planning: true
+  navigation: true
+  perception: true
+  manipulation: true
+  speech_output: true
+
+integration:
+  navigation:
+    enabled: true
+    goal_tolerance_m: 0.15
+  
+  perception:
+    enabled: true
+    min_confidence: 0.7
+  
+  manipulation:
+    enabled: true
+    grasp_planning: true
+
+locations:
+  - name: "home"
+    pose: {x: 0.0, y: 0.0, yaw: 0.0}
+  - name: "kitchen"
+    pose: {x: 5.0, y: 2.0, yaw: 1.57}
+  - name: "desk"
+    pose: {x: 2.5, y: 1.0, yaw: 0.0}
+```
+
+## Testing
+
+```bash
+# Run the fetch object scenario
+python examples/vla/capstone/scenarios/fetch_object.py \
+    --location desk --object phone
+
+# Run multiple scenarios
+python examples/vla/capstone/scenarios/navigate_and_report.py
+python examples/vla/capstone/scenarios/multi_step_task.py
+```
+
+## Conclusion
+
+Congratulations! You've built a complete autonomous humanoid robot that can:
+
+- ✅ Listen to voice commands
+- ✅ Understand natural language
+- ✅ Plan complex action sequences
+- ✅ Navigate through environments
+- ✅ Detect and manipulate objects
+- ✅ Provide verbal feedback
+
+## Next Steps
+
+- Add more action primitives for your use case
+- Fine-tune the LLM prompts
+- Integrate with real hardware
+- Deploy to production environments

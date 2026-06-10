@@ -1,0 +1,65 @@
+---
+sidebar_position: 1
+---
+
+# ROS 2 Fundamentals
+
+Welcome to **Module 1: ROS 2 Fundamentals** - your comprehensive guide to building robust humanoid robot applications using the Robot Operating System 2.
+
+## Overview
+
+ROS 2 (Robot Operating System 2) is the foundation for modern robotics development. This module covers everything you need to know to build production-ready humanoid robot systems.
+
+## What You'll Learn
+
+- **Architecture**: Understanding ROS 2 nodes, topics, services, and actions
+- **Communication**: Message passing and inter-process communication
+- **URDF Modeling**: Creating robot descriptions for simulation and control
+- **AI Integration**: Connecting ROS 2 with AI/ML pipelines
+
+## Chapters
+
+| Chapter | Topic | Description |
+|---------|-------|-------------|
+| 1 | [Architecture](./architecture) | ROS 2 core concepts and design patterns |
+| 2 | [Communication](./communication) | Topics, services, actions, and parameters |
+| 3 | [URDF Modeling](./urdf-modeling) | Robot description and joint configurations |
+| 4 | [AI Integration](./ai-integration) | Connecting AI pipelines to ROS 2 |
+| 5 | [Summary](./summary) | Best practices and next steps |
+
+## Prerequisites
+
+- Ubuntu 22.04 LTS or Windows 11 with WSL2
+- Python 3.10+ or C++17
+- Basic understanding of robotics concepts
+
+## Quick Start
+
+```bash
+# Install ROS 2 Humble
+sudo apt install ros-humble-desktop
+
+# Source the environment
+source /opt/ros/humble/setup.bash
+
+# Verify installation
+ros2 --version
+```
+
+## Key Concepts
+
+### Nodes
+Nodes are the fundamental building blocks of ROS 2 applications. Each node is a single-purpose process that communicates with other nodes.
+
+### Topics
+Topics provide a publish-subscribe mechanism for streaming data between nodes. Ideal for sensor data and continuous updates.
+
+### Services
+Services provide a request-response pattern for synchronous communication. Perfect for discrete operations.
+
+### Actions
+Actions extend services with feedback and cancellation capabilities. Essential for long-running tasks like navigation.
+
+---
+
+Continue to [Architecture](./architecture) to begin learning ROS 2 fundamentals.

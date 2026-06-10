@@ -1,0 +1,340 @@
+---
+title: Isaac ROS Perception Pipelines
+description: Hardware-accelerated perception with VSLAM and sensor fusion for humanoid robots
+sidebar_position: 2
+---
+
+# Chapter 2: Isaac ROS Perception Pipelines
+
+Learn how to implement hardware-accelerated perception pipelines using NVIDIA Isaac ROS for humanoid robot applications. This chapter covers Visual SLAM (VSLAM), sensor fusion, and real-time navigation data streaming.
+
+## Overview
+
+Isaac ROS provides GPU-accelerated perception capabilities that enable humanoid robots to understand their environment in real-time. The perception pipeline combines:
+
+- **Visual SLAM (VSLAM)**: Simultaneous localization and mapping using camera and IMU data
+- **Sensor Fusion**: Combining camera, LiDAR, and IMU for robust state estimation
+- **Point Cloud Processing**: Real-time obstacle detection and ground segmentation
+
+## Prerequisites
+
+Before starting this chapter, ensure you have:
+
+- Completed Chapter 1: NVIDIA Isaac Sim setup
+- ROS 2 Humble installed
+- NVIDIA GPU with compute capability 6.0+
+- Isaac ROS packages installed
+
+```bash
+# Install Isaac ROS packages
+sudo apt-get install ros-humble-isaac-ros-visual-slam
+sudo apt-get install ros-humble-isaac-ros-image-proc
+```
+
+## Hardware-Accelerated VSLAM
+
+### VSLAM Configuration
+
+The VSLAM configuration optimizes visual-inertial odometry for humanoid robots:
+
+```yaml
+# vslam_params.yaml
+/**:
+  ros__parameters:
+    # Input topics
+    image_topic: "/camera/rgb/image_rect_color"
+    camera_info_topic: "/camera/rgb/camera_info"
+    imu_topic: "/imu/data"
+
+    # Feature detection
+    feature_detector:
+      max_features: 1000
+      min_distance: 10
+      quality_level: 0.01
+      pyramid_levels: 4
+
+    # Visual-inertial fusion
+    visual_inertial:
+      enable_imu_integration: true
+      imu_noise_density: 0.001
+      gravity: 9.81
+
+    # Output
+    output:
+      pose_topic: "/visual_slam/pose"
+      publish_rate: 30.0
+      publish_tf: true
+```
+
+### Launching VSLAM
+
+Start the VSLAM node with the perception pipeline:
+
+```bash
+ros2 launch isaac_ros_visual_slam isaac_ros_visual_slam.launch.py \
+  image_input:=/camera/rgb/image_rect_color \
+  camera_info_input:=/camera/rgb/camera_info
+```
+
+## Sensor Processing Nodes
+
+### Camera Processing
+
+The camera processing node handles image rectification and feature extraction:
+
+```python
+# camera_processing.py (excerpt)
+class CameraProcessingNode(Node):
+    def __init__(self):
+        super().__init__('camera_processing_node')
+        
+        # Configure processing parameters
+        self.declare_parameter('enable_rectification', True)
+        self.declare_parameter('enable_feature_extraction', True)
+        
+        # Create image subscriber
+        self.image_sub = self.create_subscription(
+            Image, '/camera/rgb/image_raw',
+            self.image_callback, qos_profile
+        )
+        
+        # Publish rectified images
+        self.rectified_pub = self.create_publisher(
+            Image, '/camera/rgb/image_rect_color', 1
+        )
+```
+
+### LiDAR Processing
+
+Process 3D point clouds for obstacle detection:
+
+```python
+# lidar_processing.py (excerpt)
+class LidarProcessingNode(Node):
+    def __init__(self):
+        super().__init__('lidar_processing_node')
+        
+        # Point cloud filtering parameters
+        self.declare_parameter('min_range', 0.1)
+        self.declare_parameter('max_range', 30.0)
+        self.declare_parameter('ground_threshold', 0.15)
+        
+    def process_pointcloud(self):
+        # Apply range filtering
+        filtered_points = self.filter_points(points)
+        
+        # Ground segmentation
+        ground, obstacles = self.segment_ground(filtered_points)
+        
+        # Convert to 2D laser scan for Nav2
+        scan = self.pointcloud_to_laserscan(obstacles)
+```
+
+### IMU Processing
+
+Handle orientation estimation and motion tracking:
+
+```python
+# imu_processing.py (excerpt)
+class ImuProcessingNode(Node):
+    def __init__(self):
+        super().__init__('imu_processing_node')
+        
+        # Complementary filter for orientation
+        self.filter = ComplementaryFilter(alpha=0.98)
+        
+    def imu_callback(self, msg):
+        # Apply bias correction
+        gyro_corrected = gyro - self.gyro_bias
+        
+        # Update orientation estimate
+        orientation = self.filter.update(
+            gyro_corrected, accel, timestamp
+        )
+        
+        # Detect stationary state for bias calibration
+        is_stationary = self.detect_stationary(gyro, accel)
+```
+
+## Sensor Fusion
+
+### Extended Kalman Filter
+
+The perception module implements sensor fusion using an Extended Kalman Filter:
+
+```python
+# perception.py (excerpt)
+class ExtendedKalmanFilter:
+    """
+    EKF for multi-sensor fusion.
+    State: [x, y, z, vx, vy, vz, qw, qx, qy, qz, wx, wy, wz]
+    """
+    
+    def predict(self, dt):
+        """Predict step with motion model."""
+        # Position update from velocity
+        new_position = position + velocity * dt
+        
+        # Orientation update from angular velocity
+        new_quaternion = self.integrate_quaternion(
+            quaternion, angular_velocity, dt
+        )
+        
+        # Update covariance
+        self.covariance = F @ self.covariance @ F.T + Q
+    
+    def update_vslam(self, position, orientation):
+        """Update with VSLAM measurement."""
+        # Kalman gain
+        K = self.covariance @ H.T @ inv(S)
+        
+        # State update
+        self.state = self.state + K @ innovation
+```
+
+### Fusion Manager
+
+The SensorFusionManager coordinates multi-sensor data:
+
+```python
+class SensorFusionManager:
+    def process_measurement(self, measurement):
+        # Predict to current time
+        self._predict(measurement.timestamp)
+        
+        # Update based on sensor type
+        if measurement.sensor_type == SensorType.VSLAM:
+            self.ekf.update_vslam(position, orientation)
+        elif measurement.sensor_type == SensorType.IMU:
+            self.ekf.update_imu(angular_velocity, acceleration)
+        elif measurement.sensor_type == SensorType.LIDAR:
+            self.ekf.update_lidar(position)
+```
+
+## Real-Time Data Streaming
+
+### ROS 2 Topic Architecture
+
+The perception pipeline publishes data on these topics:
+
+| Topic | Message Type | Description |
+|-------|--------------|-------------|
+| `/camera/rgb/image_rect_color` | `sensor_msgs/Image` | Rectified camera image |
+| `/lidar/points_filtered` | `sensor_msgs/PointCloud2` | Filtered point cloud |
+| `/imu/data` | `sensor_msgs/Imu` | Processed IMU data |
+| `/visual_slam/pose` | `geometry_msgs/PoseStamped` | VSLAM pose estimate |
+| `/fused_pose` | `nav_msgs/Odometry` | Fused robot state |
+| `/scan` | `sensor_msgs/LaserScan` | 2D scan for Nav2 |
+
+### Launching the Complete Pipeline
+
+```bash
+# Launch perception pipeline
+ros2 launch examples/gazebo-unity/isaac-ros/launch/perception_pipeline.launch.py \
+  use_sim_time:=true \
+  enable_vslam:=true \
+  enable_camera:=true \
+  enable_lidar:=true \
+  enable_imu:=true
+```
+
+## Best Practices
+
+### 1. Sensor Synchronization
+
+Ensure proper time synchronization between sensors:
+
+```python
+# Use message_filters for synchronization
+from message_filters import ApproximateTimeSynchronizer
+
+sync = ApproximateTimeSynchronizer(
+    [camera_sub, lidar_sub, imu_sub],
+    queue_size=10,
+    slop=0.1  # 100ms tolerance
+)
+sync.registerCallback(self.synchronized_callback)
+```
+
+### 2. Calibration
+
+Perform sensor calibration before deployment:
+
+- **Camera intrinsics**: Use `camera_calibration` package
+- **IMU bias**: Collect stationary samples at startup
+- **Extrinsics**: Measure sensor mounting positions
+
+### 3. Performance Optimization
+
+- Use GPU-accelerated nodes when available
+- Downsample point clouds for efficiency
+- Adjust processing rates based on CPU/GPU load
+
+```yaml
+# Adjust processing rates
+camera_processing:
+  processing_rate: 30.0  # Hz
+lidar_processing:
+  processing_rate: 10.0  # Hz
+imu_processing:
+  publishing_rate: 100.0  # Hz
+```
+
+## Validation
+
+### VSLAM Accuracy Test
+
+Verify VSLAM achieves the required accuracy:
+
+```bash
+# Run validation script
+python validate_perception_navigation.py --test vslam
+
+# Expected output:
+# ✓ [PASSED] SC-002: VSLAM Accuracy
+#   Mean error: 3.14cm < 5cm threshold
+```
+
+### Success Criteria
+
+| Metric | Requirement | Typical Result |
+|--------|-------------|----------------|
+| Position error | < 5cm | 2-4cm |
+| Update rate | ≥ 30Hz | 30Hz |
+| Latency | < 50ms | 20-30ms |
+
+## Troubleshooting
+
+### Common Issues
+
+**VSLAM drift in feature-poor environments:**
+```yaml
+# Increase feature detection sensitivity
+feature_detector:
+  quality_level: 0.005  # Lower = more features
+  max_features: 2000
+```
+
+**IMU bias drift:**
+```python
+# Re-calibrate when robot is stationary
+if is_stationary:
+    self.gyro_bias = 0.999 * self.gyro_bias + 0.001 * gyro
+```
+
+**Point cloud noise:**
+```yaml
+# Increase voxel size for cleaner output
+lidar_processing:
+  voxel_size: 0.1  # 10cm voxels
+```
+
+## Next Steps
+
+With perception configured, proceed to [Chapter 3: Humanoid Navigation with Nav2](./navigation) to integrate perception data with the navigation stack.
+
+## References
+
+- [Isaac ROS Documentation](https://nvidia-isaac-ros.github.io/)
+- [ROS 2 Humble Documentation](https://docs.ros.org/en/humble/)
+- [Visual SLAM Theory](https://www.robots.ox.ac.uk/~vgg/hzbook/)

@@ -1,0 +1,66 @@
+---
+sidebar_position: 1
+---
+
+# Gazebo & Unity Simulation
+
+Welcome to **Module 2: Gazebo & Unity Simulation** - learn to create realistic physics-based simulations and high-fidelity visualizations for humanoid robots.
+
+## Overview
+
+Simulation is critical for safe and efficient robot development. This module covers two powerful simulation environments:
+
+- **Gazebo**: Physics-accurate simulation for control and testing
+- **Unity**: High-fidelity rendering for visualization and synthetic data
+
+## What You'll Learn
+
+- **Gazebo Physics**: Accurate physics simulation for humanoid robots
+- **Unity Rendering**: Photorealistic visualization and synthetic data generation
+- **Sensor Integration**: Simulating cameras, LiDAR, IMU, and force sensors
+- **Digital Twin**: Creating synchronized digital replicas of physical robots
+
+## Chapters
+
+| Chapter | Topic | Description |
+|---------|-------|-------------|
+| 1 | [Gazebo Physics](./gazebo-physics) | Physics engine setup and robot spawning |
+| 2 | [Unity Rendering](./unity-rendering) | High-fidelity visualization pipeline |
+| 3 | [Sensor Integration](./sensor-integration) | Camera, LiDAR, and sensor simulation |
+| 4 | [Digital Twin](./digital-twin) | Real-time synchronization patterns |
+
+## Prerequisites
+
+- ROS 2 Humble installed
+- Ubuntu 22.04 LTS
+- NVIDIA GPU recommended (for Unity and Gazebo rendering)
+- Module 1 completion recommended
+
+## Quick Start
+
+```bash
+# Install Gazebo
+sudo apt install ros-humble-gazebo-ros-pkgs
+
+# Install Unity Hub (manual download from unity.com)
+# Then install Unity 2022.3 LTS
+
+# Verify Gazebo installation
+gazebo --version
+```
+
+## Why Two Simulators?
+
+| Feature | Gazebo | Unity |
+|---------|--------|-------|
+| Physics Accuracy | ⭐⭐⭐⭐⭐ | ⭐⭐⭐ |
+| Visual Fidelity | ⭐⭐⭐ | ⭐⭐⭐⭐⭐ |
+| ROS 2 Integration | Native | Via Plugin |
+| Synthetic Data | Basic | Advanced |
+| Real-time Performance | Good | Excellent |
+
+Using both simulators together gives you the best of both worlds: accurate physics from Gazebo and stunning visuals from Unity.
+
+---
+
+Continue to [Gazebo Physics](./gazebo-physics) to begin setting up your simulation environment.

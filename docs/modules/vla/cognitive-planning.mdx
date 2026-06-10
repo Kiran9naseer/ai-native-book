@@ -1,0 +1,228 @@
+---
+sidebar_position: 3
+---
+
+# Cognitive Planning with LLMs
+
+Learn how to use Large Language Models to translate voice commands into executable robot action plans.
+
+## Overview
+
+The LLM Planner takes parsed intents and generates action sequences:
+
+1. **Context Management**: Aggregating robot state and environment
+2. **LLM Planning**: Using GPT-4 to generate action plans
+3. **Plan Validation**: Ensuring plans are executable
+
+## Architecture
+
+```
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│ Context Manager │────▶│   LLM Planner   │────▶│ Plan Validator  │
+│                 │     │   (GPT-4)       │     │                 │
+└─────────────────┘     └─────────────────┘     └─────────────────┘
+        │                       │                       │
+        ▼                       ▼                       ▼
+  /vla/task_context      /vla/action_plan       Validated Plan
+```
+
+## Setup
+
+```bash
+# Install OpenAI SDK
+pip install openai httpx
+
+# Set API key
+export OPENAI_API_KEY="your-key-here"
+```
+
+## Context Management
+
+The context manager aggregates all relevant information:
+
+```python
+@dataclass
+class TaskContext:
+    robot_pose: dict          # Current position
+    gripper_state: str        # OPEN, CLOSED, HOLDING
+    held_object: str          # Currently held object
+    detected_objects: list    # Visible objects
+    known_locations: list     # Named locations
+    recent_history: list      # Recent actions
+```
+
+## LLM Integration
+
+### Function Calling Schema
+
+```python
+FUNCTION_SCHEMA = {
+    "name": "create_action_plan",
+    "description": "Create a sequence of robot actions",
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "explanation": {
+                "type": "string",
+                "description": "Brief explanation of the plan"
+            },
+            "primitives": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "action_type": {
+                            "type": "string",
+                            "enum": ["navigate_to", "pick_up", "place", 
+                                    "scan_environment", "identify_object",
+                                    "look_at", "say", "wait", "cancel"]
+                        },
+                        "parameters": {"type": "object"}
+                    }
+                }
+            }
+        }
+    }
+}
+```
+
+### Generating Plans
+
+```python
+from openai import OpenAI
+
+client = OpenAI()
+
+def generate_plan(command: str, context: dict) -> dict:
+    response = client.chat.completions.create(
+        model="gpt-4",
+        messages=[
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": f"Context: {context}\nCommand: {command}"}
+        ],
+        tools=[{"type": "function", "function": FUNCTION_SCHEMA}],
+        tool_choice={"type": "function", "function": {"name": "create_action_plan"}}
+    )
+    
+    return json.loads(response.choices[0].message.tool_calls[0].function.arguments)
+```
+
+## System Prompt
+
+```
+You are an intelligent robot action planner. Your role is to translate 
+natural language commands into executable action sequences.
+
+Available actions:
+- navigate_to: Move to a location
+- look_at: Orient sensors toward target
+- scan_environment: Survey surroundings
+- identify_object: Find and localize objects
+- pick_up: Grasp and lift objects
+- place: Put down held objects
+- say: Speak to the user
+- wait: Pause execution
+- cancel: Stop current action
+
+When planning:
+1. Validate preconditions can be met
+2. Include error handling for failures
+3. Provide feedback to the user
+4. Generate minimum necessary steps
+```
+
+## Action Primitives
+
+| Primitive | Parameters | Preconditions |
+|-----------|------------|---------------|
+| `navigate_to` | location, pose | robot_mobile |
+| `look_at` | target, direction | head_controllable |
+| `scan_environment` | mode, area | perception_enabled |
+| `identify_object` | object_name, color | perception_enabled |
+| `pick_up` | object_id, grasp_type | gripper_empty |
+| `place` | location, style | gripper_holding |
+| `say` | text, priority | tts_enabled |
+| `wait` | duration | - |
+| `cancel` | - | - |
+
+## Example Plans
+
+### "Go to the kitchen"
+
+```json
+{
+  "explanation": "Navigate to the kitchen location",
+  "primitives": [
+    {
+      "action_type": "say",
+      "parameters": {"text": "I'm heading to the kitchen."}
+    },
+    {
+      "action_type": "navigate_to",
+      "parameters": {"location": "kitchen"}
+    },
+    {
+      "action_type": "say",
+      "parameters": {"text": "I've arrived at the kitchen."}
+    }
+  ]
+}
+```
+
+### "Pick up the red cup"
+
+```json
+{
+  "explanation": "Find and pick up a red cup",
+  "primitives": [
+    {
+      "action_type": "scan_environment",
+      "parameters": {"mode": "full"}
+    },
+    {
+      "action_type": "identify_object",
+      "parameters": {"object_name": "cup", "color": "red"}
+    },
+    {
+      "action_type": "pick_up",
+      "parameters": {"object_id": "cup_001", "grasp_type": "power"}
+    },
+    {
+      "action_type": "say",
+      "parameters": {"text": "I've picked up the red cup."}
+    }
+  ]
+}
+```
+
+## Fallback Strategy
+
+```python
+# If OpenAI fails, fall back to Ollama
+def generate_plan_with_fallback(command, context):
+    try:
+        return generate_plan_openai(command, context)
+    except Exception as e:
+        logger.warning(f"OpenAI failed: {e}, using Ollama fallback")
+        return generate_plan_ollama(command, context)
+```
+
+## Configuration
+
+```yaml
+# llm_config.yaml
+llm:
+  provider: "openai"
+  model: "gpt-4"
+  temperature: 0.2
+  max_tokens: 1024
+  
+  fallback:
+    enabled: true
+    provider: "ollama"
+    model: "llama3"
+```
+
+---
+
+Continue to [Autonomous Humanoid](./autonomous-humanoid) to integrate everything into a complete pipeline.

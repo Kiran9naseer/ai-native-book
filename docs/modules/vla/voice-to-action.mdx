@@ -1,0 +1,178 @@
+---
+sidebar_position: 2
+---
+
+# Voice-to-Action Pipeline
+
+Learn how to capture voice commands and convert them into structured robot actions using OpenAI Whisper.
+
+## Overview
+
+The Voice-to-Action pipeline is the first stage of the VLA system. It consists of:
+
+1. **Audio Capture**: Recording microphone input with Voice Activity Detection
+2. **Whisper Transcription**: Converting speech to text
+3. **Command Parsing**: Extracting structured intents from transcriptions
+
+## Architecture
+
+```
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│  Audio Capture  │────▶│    Whisper      │────▶│ Command Parser  │
+│     + VAD       │     │  Transcriber    │     │                 │
+└─────────────────┘     └─────────────────┘     └─────────────────┘
+        │                       │                       │
+        ▼                       ▼                       ▼
+ /vla/audio_chunk      /vla/transcription      /vla/parsed_intent
+```
+
+## Installation
+
+```bash
+# Install Whisper and audio dependencies
+pip install openai-whisper sounddevice webrtcvad
+
+# Download the Whisper model
+python -c "import whisper; whisper.load_model('small')"
+```
+
+## Audio Capture Node
+
+The audio capture node listens to the microphone and detects speech:
+
+```python
+import sounddevice as sd
+import numpy as np
+
+# Configure audio input
+sample_rate = 16000  # Whisper expects 16kHz
+chunk_duration_ms = 100
+
+def audio_callback(indata, frames, time_info, status):
+    # Process audio chunk
+    audio = indata[:, 0].copy()
+    # Apply VAD and publish if speech detected
+```
+
+### Voice Activity Detection (VAD)
+
+VAD prevents processing silence and reduces noise:
+
+```python
+class VoiceActivityDetector:
+    def __init__(self, energy_threshold=-40.0):
+        self.energy_threshold = energy_threshold
+    
+    def is_speech(self, audio):
+        rms = np.sqrt(np.mean(audio ** 2))
+        energy_db = 20 * np.log10(max(rms, 1e-10))
+        return energy_db > self.energy_threshold
+```
+
+## Whisper Transcription
+
+### Model Selection
+
+| Model | Size | Speed | Accuracy |
+|-------|------|-------|----------|
+| tiny | 39M | Fastest | Good |
+| base | 74M | Fast | Better |
+| **small** | 244M | Medium | **Recommended** |
+| medium | 769M | Slow | Excellent |
+| large-v3 | 1.5G | Slowest | Best |
+
+### Transcription Code
+
+```python
+import whisper
+
+# Load model once at startup
+model = whisper.load_model("small")
+
+def transcribe(audio: np.ndarray) -> str:
+    # Pad or trim to 30 seconds
+    audio = whisper.pad_or_trim(audio)
+    
+    # Create mel spectrogram
+    mel = whisper.log_mel_spectrogram(audio)
+    
+    # Decode
+    options = whisper.DecodingOptions(language="en")
+    result = whisper.decode(model, mel, options)
+    
+    return result.text
+```
+
+## Command Parser
+
+The command parser extracts structured intents:
+
+```python
+@dataclass
+class ParsedIntent:
+    intent_type: str      # NAVIGATION, MANIPULATION, QUERY, CANCEL
+    action_verb: str      # go, pick, find, etc.
+    target_object: str    # cup, phone, book
+    target_location: str  # kitchen, desk, table
+    modifiers: list       # red, large, left
+```
+
+### Intent Classification
+
+```python
+INTENT_PATTERNS = {
+    'navigation': [r'\b(go|navigate|move|walk)\b.*\b(to|towards)\b'],
+    'manipulation': [r'\b(pick up|grab|take|put|place)\b'],
+    'query': [r'\b(where is|find|locate|what)\b'],
+    'cancel': [r'\b(stop|cancel|abort)\b'],
+}
+
+def classify_intent(text):
+    for intent_type, patterns in INTENT_PATTERNS.items():
+        for pattern in patterns:
+            if re.search(pattern, text, re.IGNORECASE):
+                return intent_type
+    return 'unknown'
+```
+
+## Launch the Pipeline
+
+```bash
+# Start the voice pipeline
+ros2 launch vla_nodes whisper_pipeline.launch.py
+
+# Monitor transcriptions
+ros2 topic echo /vla/transcription
+
+# Test with your voice
+# Speak: "Go to the kitchen"
+```
+
+## Configuration
+
+```yaml
+# whisper_config.yaml
+audio:
+  sample_rate: 16000
+  vad:
+    enabled: true
+    energy_threshold: -40
+
+whisper:
+  model_size: "small"
+  language: "en"
+  device: "cuda"  # or "cpu"
+```
+
+## Troubleshooting
+
+| Issue | Solution |
+|-------|----------|
+| No audio input | Check microphone permissions and device ID |
+| Poor accuracy | Use larger model or reduce background noise |
+| High latency | Use `tiny` model or GPU acceleration |
+| VAD not triggering | Lower energy threshold |
+
+---
+
+Continue to [Cognitive Planning](./cognitive-planning) to learn how to generate action plans from parsed intents.

@@ -1,0 +1,66 @@
+---
+sidebar_position: 2
+---
+
+# API Reference
+
+The RAG Chatbot backend provides a REST API for interacting with the system.
+
+## Endpoints
+
+### `POST /api/chat`
+
+Submit a question to the chatbot.
+
+**Request Body:**
+
+```json
+{
+  "question": "What is physical AI?",
+  "conversation_id": "optional-uuid"
+}
+```
+
+**Response:**
+
+```json
+{
+  "answer": "Physical AI refers to...",
+  "sources": [
+    {
+      "title": "Introduction",
+      "url": "/docs/introduction"
+    }
+  ],
+  "conversation_id": "uuid"
+}
+```
+
+### `GET /api/health`
+
+Check the system health.
+
+**Response:**
+
+```json
+{
+  "status": "healthy",
+  "components": {
+    "qdrant": true,
+    "openai": true
+  }
+}
+```
+
+### `POST /api/ingest`
+
+Trigger documentation ingestion.
+
+**Request Body:**
+
+```json
+{
+  "docs_path": "./docs",
+  "force": false
+}
+```

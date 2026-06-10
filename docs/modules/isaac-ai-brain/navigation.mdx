@@ -1,0 +1,440 @@
+---
+title: Humanoid Navigation with Nav2
+description: Path planning and autonomous navigation for bipedal humanoid robots
+sidebar_position: 3
+---
+
+# Chapter 3: Humanoid Navigation with Nav2
+
+Learn how to configure Nav2 for humanoid robot navigation, including bipedal path planning, obstacle avoidance, and integration with perception pipelines.
+
+## Overview
+
+Humanoid robot navigation presents unique challenges compared to wheeled robots:
+
+- **Bipedal constraints**: Limited step length, stability requirements
+- **Balance considerations**: Conservative velocity limits, recovery behaviors
+- **3D awareness**: Step height limitations, terrain assessment
+
+This chapter covers Nav2 configuration optimized for humanoid locomotion.
+
+## Prerequisites
+
+Before starting this chapter, ensure you have:
+
+- Completed Chapter 2: Perception Pipelines
+- Nav2 installed: `sudo apt-get install ros-humble-nav2-bringup`
+- Working perception data streams (`/scan`, `/odom`, `/imu/data`)
+
+## Nav2 Configuration for Humanoids
+
+### Humanoid-Specific Parameters
+
+Configure Nav2 with conservative parameters for bipedal stability:
+
+```yaml
+# humanoid_nav_params.yaml
+humanoid:
+  ros__parameters:
+    # Robot physical properties
+    robot_radius: 0.30
+    robot_height: 1.70
+    
+    # Bipedal constraints
+    bipedal_constraints:
+      max_step_length: 0.30    # 30cm max step
+      max_step_width: 0.20     # 20cm lateral
+      max_step_height: 0.15    # 15cm step-up
+      min_step_time: 0.4       # 400ms per step
+      
+    # Balance constraints
+    balance:
+      max_lean_angle: 0.15     # ~8.5 degrees
+      min_stability_margin: 0.05
+```
+
+### Controller Configuration
+
+Use MPPI controller with humanoid-specific limits:
+
+```yaml
+controller_server:
+  ros__parameters:
+    FollowPath:
+      plugin: "nav2_mppi_controller::MPPIController"
+      
+      # Conservative velocity limits
+      vx_max: 0.4      # 0.4 m/s forward
+      vx_min: -0.15    # 0.15 m/s reverse
+      vy_max: 0.05     # Minimal lateral
+      wz_max: 0.4      # 0.4 rad/s rotation
+      
+      # Stability-focused costs
+      critics: [
+        "ConstraintCritic",
+        "ObstaclesCritic",
+        "GoalCritic",
+        "PreferForwardCritic"
+      ]
+```
+
+### Costmap Configuration
+
+Configure costmaps for humanoid footprint:
+
+```yaml
+local_costmap:
+  local_costmap:
+    ros__parameters:
+      # Humanoid footprint approximation
+      footprint: "[[0.15, 0.10], [0.15, -0.10], 
+                   [-0.15, -0.10], [-0.15, 0.10]]"
+      
+      # Fine resolution for precise navigation
+      resolution: 0.03
+      
+      # Sensor sources
+      plugins: ["voxel_layer", "inflation_layer"]
+      
+      voxel_layer:
+        observation_sources: lidar scan camera_depth
+        max_obstacle_height: 2.0
+```
+
+## Path Planning
+
+### Planner Configuration
+
+Use SMAC Hybrid A* planner for smooth paths:
+
+```yaml
+planner_server:
+  ros__parameters:
+    GridBased:
+      plugin: "nav2_smac_planner::SmacPlannerHybrid"
+      
+      # Humanoid motion model
+      motion_model_for_search: "DUBIN"
+      minimum_turning_radius: 0.40
+      
+      # Discourage reverse motion
+      reverse_penalty: 2.0
+      non_straight_penalty: 1.2
+```
+
+### Path Validation
+
+The navigation module validates paths against bipedal constraints:
+
+```python
+# navigation.py
+class PathValidator:
+    def validate_path(self, path: List[Pose2D]) -> Tuple[bool, List[str]]:
+        issues = []
+        
+        for i in range(1, len(path)):
+            prev, curr = path[i-1], path[i]
+            
+            # Check step length
+            step_length = prev.distance_to(curr)
+            if step_length > self.constraints.max_step_length:
+                issues.append(f"Step {i}: exceeds max length")
+            
+            # Check lateral movement
+            lateral = abs(sin(heading - prev.theta) * step_length)
+            if lateral > self.constraints.max_step_width:
+                issues.append(f"Step {i}: excessive lateral")
+        
+        return len(issues) == 0, issues
+```
+
+## Behavior Tree for Humanoids
+
+### Conservative Recovery Behaviors
+
+Design recovery behaviors suited for bipedal balance:
+
+```xml
+<!-- humanoid_behavior_tree.xml -->
+<RecoveryNode number_of_retries="6" name="NavigateRecovery">
+  <PipelineSequence name="NavigateWithReplanning">
+    
+    <!-- Path computation with recovery -->
+    <RecoveryNode number_of_retries="2">
+      <ComputePathToPose goal="{goal}" path="{path}"/>
+      <ClearEntireCostmap service_name="global_costmap/clear"/>
+    </RecoveryNode>
+
+    <!-- Path following with humanoid recovery -->
+    <RecoveryNode number_of_retries="2">
+      <FollowPath path="{path}" controller_id="FollowPath"/>
+      
+      <!-- Recovery sequence -->
+      <Sequence name="HumanoidRecovery">
+        <!-- Wait for stability -->
+        <Wait wait_duration="3"/>
+        
+        <!-- Slow spin (45 degrees) -->
+        <Spin spin_dist="0.785"/>
+        
+        <!-- Minimal backup -->
+        <BackUp backup_dist="0.10" backup_speed="0.05"/>
+      </Sequence>
+    </RecoveryNode>
+    
+  </PipelineSequence>
+</RecoveryNode>
+```
+
+## Navigation Module
+
+### Trajectory Generation
+
+Generate smooth trajectories for humanoid motion:
+
+```python
+class TrajectoryGenerator:
+    def generate_trajectory(
+        self, start: Pose2D, goal: Pose2D
+    ) -> List[Pose2D]:
+        trajectory = []
+        
+        for i in range(num_points + 1):
+            t = i / num_points
+            
+            # Smooth easing for stability
+            t_smooth = self.ease_in_out_cubic(t)
+            
+            # Position interpolation
+            x = start.x + t_smooth * (goal.x - start.x)
+            y = start.y + t_smooth * (goal.y - start.y)
+            
+            # Orientation: face direction of travel
+            if t < 0.3:
+                theta = self.interpolate_angle(
+                    start.theta, goal_direction, t / 0.3
+                )
+            elif t > 0.7:
+                theta = self.interpolate_angle(
+                    goal_direction, goal.theta, (t - 0.7) / 0.3
+                )
+            else:
+                theta = goal_direction
+            
+            trajectory.append(Pose2D(x, y, theta))
+        
+        return trajectory
+```
+
+### Obstacle Avoidance
+
+Integrate perception for reactive obstacle avoidance:
+
+```python
+class ObstacleDetector:
+    def get_safe_direction(
+        self, pose: Pose2D, goal: Pose2D
+    ) -> float:
+        goal_direction = pose.angle_to(goal)
+        
+        # Calculate repulsion from obstacles
+        repulsion = [0.0, 0.0]
+        for ox, oy, radius in self.obstacles:
+            dx, dy = pose.x - ox, pose.y - oy
+            distance = max(sqrt(dx*dx + dy*dy), 0.01)
+            
+            if distance < influence_radius:
+                strength = (influence_radius - distance) / influence_radius
+                repulsion[0] += strength * dx / distance
+                repulsion[1] += strength * dy / distance
+        
+        # Combine goal attraction with obstacle repulsion
+        combined_x = cos(goal_direction) + 0.5 * repulsion[0]
+        combined_y = sin(goal_direction) + 0.5 * repulsion[1]
+        
+        return atan2(combined_y, combined_x)
+```
+
+## Launching Navigation
+
+### Complete Navigation Stack
+
+```bash
+# Launch Nav2 with humanoid configuration
+ros2 launch examples/gazebo-unity/nav2/launch/navigation.launch.py \
+  use_sim_time:=true \
+  params_file:=examples/gazebo-unity/nav2/config/humanoid_nav_params.yaml \
+  map:=/path/to/map.yaml
+```
+
+### Sending Navigation Goals
+
+```python
+# Python example
+from geometry_msgs.msg import PoseStamped
+from nav2_simple_commander.robot_navigator import BasicNavigator
+
+navigator = BasicNavigator()
+
+# Set goal
+goal_pose = PoseStamped()
+goal_pose.header.frame_id = 'map'
+goal_pose.pose.position.x = 5.0
+goal_pose.pose.position.y = 3.0
+goal_pose.pose.orientation.w = 1.0
+
+# Navigate
+navigator.goToPose(goal_pose)
+
+# Wait for result
+while not navigator.isTaskComplete():
+    feedback = navigator.getFeedback()
+    print(f"Distance remaining: {feedback.distance_remaining:.2f}m")
+```
+
+## Integration with Perception
+
+### Perception-Navigation Loop
+
+```python
+class NavigationManager:
+    def __init__(self):
+        self.path_validator = PathValidator()
+        self.trajectory_generator = TrajectoryGenerator()
+        self.obstacle_detector = ObstacleDetector()
+    
+    def update_obstacles(self, obstacles):
+        """Update from perception system."""
+        self.obstacle_detector.update_obstacles(obstacles)
+        
+        # Check if current path is still valid
+        if self.current_path:
+            for pose in self.current_path:
+                if self.obstacle_detector.check_collision(pose):
+                    self.trigger_replan()
+                    break
+    
+    def get_velocity_command(self) -> Tuple[float, float]:
+        """Get velocity for robot control."""
+        target = self.get_lookahead_point()
+        
+        # Compute velocities
+        distance = self.current_pose.distance_to(target)
+        angle_error = self.current_pose.angle_to(target) - self.current_pose.theta
+        
+        linear_vel = min(0.5 * distance, self.max_velocity)
+        angular_vel = clip(1.0 * angle_error, -self.max_angular_vel, self.max_angular_vel)
+        
+        return linear_vel, angular_vel
+```
+
+## Validation
+
+### Navigation Success Rate
+
+Test navigation performance:
+
+```bash
+# Run navigation validation
+python validate_perception_navigation.py --test navigation
+
+# Expected output:
+# ✓ [PASSED] SC-003: Navigation Success Rate
+#   Success rate: 95.0% >= 90% threshold
+```
+
+### Success Criteria
+
+| Metric | Requirement | Typical Result |
+|--------|-------------|----------------|
+| Success rate | ≥ 90% | 92-98% |
+| Goal tolerance | 25cm | 10-20cm |
+| Recovery rate | < 20% | 5-15% |
+
+## Troubleshooting
+
+### Common Issues
+
+**Robot oscillates near goal:**
+```yaml
+# Increase goal tolerance
+goal_checker:
+  xy_goal_tolerance: 0.30  # 30cm
+  yaw_goal_tolerance: 0.30
+```
+
+**Frequent recovery behaviors:**
+```yaml
+# Increase costmap margins
+inflation_layer:
+  inflation_radius: 0.7  # Increase from 0.55
+  cost_scaling_factor: 2.0  # Reduce from 3.0
+```
+
+**Path too aggressive for humanoid:**
+```yaml
+# Reduce velocity limits
+FollowPath:
+  vx_max: 0.3  # Reduce from 0.4
+  wz_max: 0.3  # Reduce from 0.4
+```
+
+## Best Practices
+
+### 1. Start Conservative
+
+Begin with low velocity limits and increase gradually:
+
+```yaml
+# Start with safe values
+vx_max: 0.2
+wz_max: 0.2
+
+# After testing, increase if stable
+vx_max: 0.4
+wz_max: 0.4
+```
+
+### 2. Monitor Stability
+
+Add stability monitoring:
+
+```python
+def check_stability(self, imu_data):
+    # Check orientation within limits
+    roll, pitch = get_roll_pitch(imu_data.orientation)
+    
+    if abs(roll) > MAX_LEAN or abs(pitch) > MAX_LEAN:
+        self.emergency_stop()
+        return False
+    return True
+```
+
+### 3. Graceful Degradation
+
+Implement fallback behaviors:
+
+```python
+if not perception_available:
+    # Fall back to conservative navigation
+    self.set_max_velocity(0.2)
+    self.enable_emergency_stop()
+```
+
+## Summary
+
+This chapter covered:
+
+- ✅ Nav2 configuration for humanoid robots
+- ✅ Bipedal-specific path planning constraints
+- ✅ Conservative recovery behaviors
+- ✅ Integration with perception pipelines
+- ✅ Validation and troubleshooting
+
+You now have a complete perception-navigation system for humanoid robots running in Isaac Sim.
+
+## References
+
+- [Nav2 Documentation](https://navigation.ros.org/)
+- [SMAC Planner](https://navigation.ros.org/configuration/packages/configuring-smac-planner.html)
+- [Behavior Trees](https://navigation.ros.org/behavior_trees/index.html)

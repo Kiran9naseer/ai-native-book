@@ -1,0 +1,279 @@
+---
+title: Communication Patterns - Nodes, Topics, Services
+sidebar_position: 2
+description: Understanding ROS 2 communication patterns including topics, services, and Quality of Service (QoS) settings
+---
+
+# Communication Patterns - Nodes, Topics, Services
+
+## Overview
+
+Communication is the backbone of any distributed robotic system, and ROS 2 provides several robust patterns for nodes to exchange information. Unlike ROS 1's centralized communication model, ROS 2 leverages the DDS middleware to enable peer-to-peer communication with configurable Quality of Service (QoS) settings. This chapter explores the primary communication patterns in ROS 2: topics for asynchronous message passing, and services for synchronous request-response interactions.
+
+Understanding these communication patterns is essential for building robust robotic applications that can handle various scenarios, from sensor data streaming to command execution requests. Each pattern serves specific use cases and comes with its own set of advantages and trade-offs.
+
+## Communication Pattern Types
+
+ROS 2 offers three primary communication patterns:
+
+- **Topics**: Asynchronous, many-to-many communication using a publish-subscribe model
+- **Services**: Synchronous, one-to-one communication using a request-response model
+- **Actions**: Asynchronous, goal-oriented communication with feedback and status updates
+
+This chapter focuses on topics and services, which are the foundational communication patterns in ROS 2. Actions, while powerful, are more advanced and will be covered in a separate context.
+
+## When to Use Each Pattern
+
+- **Use Topics** for continuous data streams like sensor readings, robot state, or broadcast information
+- **Use Services** for discrete requests like configuration changes, triggering specific behaviors, or queries that require immediate responses
+- **Use Actions** for long-running tasks that need to report progress or can be preempted
+
+Understanding when to apply each pattern is crucial for designing efficient and maintainable robotic systems.
+
+## Topics and Publisher-Subscriber Pattern
+
+### Concept and Purpose
+
+The **topic** is the fundamental communication mechanism in ROS 2 for asynchronous, one-to-many data distribution. The publisher-subscriber pattern enables nodes to exchange messages without requiring direct connections between them. Publishers send messages to a topic, and any number of subscribers can receive those messages if they are listening to the same topic name.
+
+This pattern is ideal for scenarios where:
+- Data is continuously generated (e.g., sensor readings)
+- Multiple nodes need the same information
+- Loose coupling between nodes is desired
+- Real-time performance is important
+
+### Key Characteristics
+
+- **Asynchronous**: Publishers and subscribers don't need to run simultaneously
+- **Many-to-many**: Multiple publishers can send to the same topic; multiple subscribers can listen to the same topic
+- **Data-driven**: Communication is based on topic names and message types
+- **Decoupled**: Publishers don't know about subscribers and vice versa
+
+### Topic Naming Convention
+
+Topics follow a hierarchical naming convention similar to file paths:
+- Use forward slashes to separate namespaces: `/namespace/sub_namespace/topic_name`
+- Start with a forward slash for global topics: `/global_topic`
+- Use descriptive, lowercase names with underscores: `/sensor_data/laser_scan`
+
+### Message Types
+
+All messages published to topics must have a defined message type. ROS 2 provides standard message types in packages like `std_msgs`, `sensor_msgs`, and `geometry_msgs`, but custom message types can also be defined.
+
+### Quality of Service (QoS) Considerations
+
+Topics support various QoS policies that control how messages are delivered, including reliability, durability, and history settings. These will be discussed in detail later in this chapter.
+
+## Implementing Publisher-Subscriber Pattern
+
+### Publisher Implementation
+
+Creating a publisher in ROS 2 involves several key steps:
+
+1. Create a publisher object with a specific message type and topic name
+2. Prepare message objects with the data to be sent
+3. Publish messages to the topic using the publisher object
+
+Here's a basic publisher implementation:
+
+```python
+import rclpy
+from rclpy.node import Node
+from std_msgs.msg import String
+
+class MinimalPublisher(Node):
+    def __init__(self):
+        super().__init__('minimal_publisher')
+        self.publisher_ = self.create_publisher(String, 'topic', 10)
+        timer_period = 0.5
+        self.timer = self.create_timer(timer_period, self.timer_callback)
+        self.i = 0
+
+    def timer_callback(self):
+        msg = String()
+        msg.data = f'Hello World: {self.i}'
+        self.publisher_.publish(msg)
+        self.get_logger().info(f'Publishing: "{msg.data}"')
+        self.i += 1
+```
+
+### Subscriber Implementation
+
+Creating a subscriber involves:
+
+1. Creating a subscription object with a specific message type and topic name
+2. Defining a callback function to handle received messages
+3. Registering the callback with the subscription
+
+Here's a basic subscriber implementation:
+
+```python
+import rclpy
+from rclpy.node import Node
+from std_msgs.msg import String
+
+class MinimalSubscriber(Node):
+    def __init__(self):
+        super().__init__('minimal_subscriber')
+        self.subscription = self.create_subscription(
+            String,
+            'topic',
+            self.message_callback,
+            10)
+        self.subscription  # type: ignore
+
+    def message_callback(self, msg):
+        self.get_logger().info(f'I heard: "{msg.data}"')
+```
+
+### Running Publisher and Subscriber
+
+To see the publisher-subscriber pattern in action:
+
+1. Source your ROS 2 environment
+2. Run the publisher in one terminal: `python3 minimal_publisher.py`
+3. Run the subscriber in another terminal: `python3 minimal_subscriber.py`
+4. Observe the messages being published and received
+
+The publisher will send "Hello World" messages every 0.5 seconds, and the subscriber will receive and log them.
+
+## Services and Client-Server Pattern
+
+### Concept and Purpose
+
+The **service** pattern in ROS 2 provides synchronous, one-to-one communication using a request-response model. Unlike topics which are asynchronous and many-to-many, services establish a direct connection between a client and a server for each request. When a client sends a request to a service, it waits for a response before continuing execution.
+
+This pattern is ideal for scenarios where:
+- A specific response is required for a request
+- The requester needs to know if the operation was successful
+- Operations need to be completed before proceeding
+- Configuration changes or state queries are needed
+
+### Key Characteristics
+
+- **Synchronous**: The client waits for the server's response
+- **One-to-one**: Each request is handled by a single server
+- **Request-response**: Clients send requests, servers send responses
+- **Blocking**: The client is blocked until the response is received
+
+### Service Definition
+
+Services in ROS 2 are defined using `.srv` files that specify both the request and response message types. A service definition has the format:
+
+```
+# Request message
+string name
+int32 age
+---
+# Response message
+bool success
+string message
+```
+
+The triple dash (`---`) separates the request fields from the response fields.
+
+### When to Use Services
+
+Services are appropriate for:
+- Configuration changes that need confirmation
+- State queries that require immediate answers
+- Operations that must complete before proceeding
+- Commands that require success/failure feedback
+
+Avoid using services for:
+- Continuous data streams (use topics instead)
+- Operations that take a long time (use actions instead)
+- Broadcasting information to multiple nodes (use topics instead)
+
+## Quality of Service (QoS) Configuration
+
+### Overview
+
+Quality of Service (QoS) in ROS 2 provides a set of policies that define how messages are delivered between nodes. QoS allows you to configure the behavior of topics and services based on the requirements of your specific application, such as reliability, durability, and timing constraints.
+
+### QoS Policies
+
+#### Reliability Policy
+Controls whether messages are delivered reliably or with best-effort:
+
+- **Reliable**: All messages are guaranteed to be delivered, with retries if necessary
+- **Best Effort**: Messages are sent without guarantees; faster but may be lost
+
+```python
+from rclpy.qos import QoSProfile, ReliabilityPolicy
+
+# Reliable QoS profile
+reliable_qos = QoSProfile(
+    depth=10,
+    reliability=ReliabilityPolicy.RELIABLE
+)
+
+# Best effort QoS profile
+best_effort_qos = QoSProfile(
+    depth=10,
+    reliability=ReliabilityPolicy.BEST_EFFORT
+)
+```
+
+#### Durability Policy
+Controls whether late-joining subscribers receive historical data:
+
+- **Transient Local**: Late-joining subscribers receive the last message published on the topic
+- **Volatile**: Late-joining subscribers only receive new messages, not historical ones
+
+```python
+from rclpy.qos import QoSProfile, DurabilityPolicy
+
+# Transient local QoS profile
+transient_qos = QoSProfile(
+    depth=10,
+    durability=DurabilityPolicy.TRANSIENT_LOCAL
+)
+
+# Volatile QoS profile
+volatile_qos = QoSProfile(
+    depth=10,
+    durability=DurabilityPolicy.VOLATILE
+)
+```
+
+#### History Policy
+Controls how many messages are stored:
+
+- **Keep Last**: Store the most recent N messages (N is defined by depth)
+- **Keep All**: Store all messages (use with caution as memory usage can grow)
+
+#### Deadline Policy
+Specifies the maximum time between consecutive messages:
+
+```python
+from rclpy.qos import QoSProfile
+import rclpy.duration
+
+# QoS with deadline of 1 second
+deadline_qos = QoSProfile(
+    depth=10,
+    deadline=rclpy.duration.Duration(seconds=1)
+)
+```
+
+### Common QoS Configurations
+
+#### Sensor Data (e.g., camera, lidar)
+- Reliability: Best Effort (can tolerate some data loss)
+- Durability: Volatile (only need current data)
+- History: Keep Last with small depth (only recent data needed)
+
+#### Control Commands (e.g., velocity commands)
+- Reliability: Reliable (must be delivered to prevent robot stopping)
+- Durability: Volatile (only current commands matter)
+- History: Keep Last with small depth
+
+#### Configuration Parameters
+- Reliability: Reliable (configuration must be delivered)
+- Durability: Transient Local (new nodes need current configuration)
+- History: Keep Last with small depth
+
+### Matching QoS Profiles
+
+For communication to succeed, the QoS profiles of publishers and subscribers must be "compatible" - they don't need to be identical, but they must be compatible according to DDS rules. For example, a reliable publisher can communicate with a best-effort subscriber, but not vice versa.
