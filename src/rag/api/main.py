@@ -36,7 +36,7 @@ app.add_middleware(
         "http://localhost:8000",
         "http://127.0.0.1:3000",
         "http://127.0.0.1:8000",
-        "https://kiran9naseer-ai-nativebook.hf.space",  # HF Spaces
+        "https://kirannaseer-ai-native-book.hf.space",  # HF Spaces
         "https://huggingface.co",
         "https://*.hf.space",
         "https://ai-native-book.vercel.app",  # Vercel frontend

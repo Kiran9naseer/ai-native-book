@@ -39,7 +39,7 @@ const config = {
 
   // Custom fields for chatbot API configuration
   customFields: {
-    chatbotApiUrl: process.env.CHATBOT_API_URL || 'https://kiran9naseer-ai-nativebook.hf.space',
+    chatbotApiUrl: process.env.CHATBOT_API_URL || 'https://kirannaseer-ai-native-book.hf.space',
   },
 
   presets: [
