@@ -1,4 +1,4 @@
-# qdrant_db/  # Keep committed for HF Spaces deployment
+qdrant_db/
 node_modules/
 .docusaurus/
 .cache-loader/
