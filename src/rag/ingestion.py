@@ -314,7 +314,7 @@ def ingest_file(
 
 
 def ingest_documents(
-    docs_path: str,
+    docs_path: Optional[str] = None,
     config: Optional[RAGConfig] = None,
     show_progress: bool = True
 ) -> Dict[str, Any]:
@@ -322,7 +322,7 @@ def ingest_documents(
     Ingest all documentation files into the vector store.
     
     Args:
-        docs_path: Path to the docs directory
+        docs_path: Path to the docs directory (auto-detected if None)
         config: RAG configuration
         show_progress: Show progress output
         
@@ -332,6 +332,18 @@ def ingest_documents(
     config = config or get_config()
     embedding_client = get_embedding_client(config)
     vector_store = get_vector_store(config)
+    
+    # Auto-detect docs path if not provided
+    if docs_path is None:
+        # Try relative to this file, then common locations
+        base = Path(__file__).parent.parent.parent  # project root
+        for candidate in ["docs", "documentation", "content"]:
+            candidate_path = base / candidate
+            if candidate_path.exists():
+                docs_path = str(candidate_path)
+                break
+        if docs_path is None:
+            docs_path = str(base / "docs")  # fallback
     
     docs_dir = Path(docs_path)
     if not docs_dir.exists():
