@@ -108,10 +108,10 @@ class RAGConfig(BaseModel):
                 completion_model=os.getenv("GEMINI_MODEL", "gemini-2.0-flash"),
             ),
             openai=OpenAIConfig(
-                api_key=openai_key,
-                base_url=os.getenv("OPENAI_BASE_URL"),
-                embedding_model=os.getenv("OPENAI_EMBEDDING_MODEL", "text-embedding-ada-002"),
-                completion_model=os.getenv("OPENAI_COMPLETION_MODEL", "gpt-3.5-turbo"),
+                api_key=openai_key.strip(),
+                base_url=os.getenv("OPENAI_BASE_URL", "").strip() or None,
+                embedding_model=os.getenv("OPENAI_EMBEDDING_MODEL", "text-embedding-ada-002").strip(),
+                completion_model=os.getenv("OPENAI_COMPLETION_MODEL", "gpt-3.5-turbo").strip(),
             ),
             huggingface=HuggingFaceConfig(
                 api_key=os.getenv("HF_TOKEN", ""),
