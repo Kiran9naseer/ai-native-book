@@ -21,8 +21,8 @@ COPY src/ ./src/
 COPY app.py .
 COPY docs/ ./docs/
 
-# Copy qdrant_db if it exists (for pre-built vector store)
-COPY qdrant_db/ ./qdrant_db/
+# Create empty directory for qdrant_db (since binary files aren't in Git)
+RUN mkdir -p ./qdrant_db/
 
 # Ensure proper permissions
 RUN chown -R user:user /app
