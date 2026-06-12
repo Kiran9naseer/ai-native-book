@@ -123,6 +123,17 @@ async def startup_event():
         store = get_vector_store()
         count = store.count()
         print(f"📚 Connected to Qdrant. Documents: {count}", flush=True)
+        
+        # Auto-ingest if database is empty
+        if count == 0:
+            print("📖 Database is empty. Auto-ingesting documentation...", flush=True)
+            try:
+                from ..ingestion import ingest_documents
+                stats = ingest_documents(show_progress=False)
+                ingested = stats.get('total_chunks', 0)
+                print(f"✅ Auto-ingested {ingested} chunks from {stats.get('processed_files', 0)} files.", flush=True)
+            except Exception as ie:
+                print(f"⚠️  Auto-ingest failed: {ie}", flush=True)
     except Exception as e:
         print(f"⚠️  Warning: Could not connect to Qdrant: {e}", flush=True)
     
