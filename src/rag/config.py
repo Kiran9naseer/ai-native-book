@@ -43,6 +43,7 @@ class GeminiConfig(BaseModel):
 class OpenAIConfig(BaseModel):
     """OpenAI API configuration."""
     api_key: str = Field(default="", description="OpenAI API key")
+    base_url: Optional[str] = Field(default=None, description="Custom base URL (e.g. for Cerebras, vLLM)")
     embedding_model: str = Field(default="text-embedding-ada-002", description="Embedding model")
     completion_model: str = Field(default="gpt-3.5-turbo", description="Completion model")
     temperature: float = Field(default=0.1, description="Generation temperature")
@@ -108,6 +109,7 @@ class RAGConfig(BaseModel):
             ),
             openai=OpenAIConfig(
                 api_key=openai_key,
+                base_url=os.getenv("OPENAI_BASE_URL"),
                 embedding_model=os.getenv("OPENAI_EMBEDDING_MODEL", "text-embedding-ada-002"),
                 completion_model=os.getenv("OPENAI_COMPLETION_MODEL", "gpt-3.5-turbo"),
             ),

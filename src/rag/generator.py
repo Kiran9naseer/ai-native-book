@@ -112,7 +112,10 @@ class Generator:
             )
             self._is_gemini = True
         elif OPENAI_AVAILABLE and self.config.openai.api_key:
-            self.openai_client = OpenAI(api_key=self.config.openai.api_key)
+            self.openai_client = OpenAI(
+                api_key=self.config.openai.api_key,
+                base_url=self.config.openai.base_url
+            )
             self._is_gemini = False
         else:
             self.openai_client = None
@@ -124,12 +127,8 @@ class Generator:
         else:
             self.hf_client = None
 
-        # Determine which model to use (prefer HF > Gemini > OpenAI)
-        if self.hf_client:
-            self.model = self.config.huggingface.model
-            self.temperature = self.config.huggingface.temperature
-            self.max_tokens = self.config.huggingface.max_tokens
-        elif self.openai_client and self._is_gemini:
+        # Determine which model to use (prefer Gemini > OpenAI > HF)
+        if self.openai_client and self._is_gemini:
             self.model = self.config.gemini.completion_model
             self.temperature = self.config.gemini.temperature
             self.max_tokens = self.config.gemini.max_tokens
@@ -137,6 +136,10 @@ class Generator:
             self.model = self.config.openai.completion_model
             self.temperature = self.config.openai.temperature
             self.max_tokens = self.config.openai.max_tokens
+        elif self.hf_client:
+            self.model = self.config.huggingface.model
+            self.temperature = self.config.huggingface.temperature
+            self.max_tokens = self.config.huggingface.max_tokens
         else:
             self.model = "mock"
             self.temperature = 0.1
@@ -227,10 +230,10 @@ Please provide a helpful, accurate answer based only on the documentation above.
         messages.append({"role": "user", "content": user_message})
         
         # Generate response
-        if self.hf_client:
-            answer = self._generate_with_hf(messages)
-        elif self.openai_client:
+        if self.openai_client:
             answer = self._generate_with_openai(messages)
+        elif self.hf_client:
+            answer = self._generate_with_hf(messages)
         else:
             answer = self._generate_mock(question, documents)
         

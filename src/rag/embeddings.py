@@ -80,7 +80,10 @@ class EmbeddingClient:
 
         # 3. Try OpenAI
         elif OPENAI_AVAILABLE and self.config.openai.api_key:
-            self._openai_client = OpenAI(api_key=self.config.openai.api_key)
+            self._openai_client = OpenAI(
+                api_key=self.config.openai.api_key,
+                base_url=self.config.openai.base_url
+            )
             self._provider = "openai"
             self.model = self.config.openai.embedding_model
             print(f"[Embeddings] Using OpenAI ({self.model}, 1536 dims)")
